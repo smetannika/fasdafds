@@ -1,0 +1,44 @@
+name: Build mod
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show repository files
+        run: find . -maxdepth 3 -not -path './.git/*' | sort
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 7.3.3
+
+      - name: Build
+        run: |
+          F=$(find . -name settings.gradle -not -path './.git/*' | head -n 1)
+          if [ -z "$F" ]; then
+            echo "ERROR: settings.gradle not found in repository. Project files were not uploaded."
+            exit 1
+          fi
+          DIR=$(dirname "$F")
+          echo "Project dir: $DIR"
+          cd "$DIR"
+          gradle build --no-daemon
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp build/libs/*.jar "$GITHUB_WORKSPACE/out/"
+          rm -f "$GITHUB_WORKSPACE"/out/*-sources.jar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: celestial-lite
+          path: out/*.jar
